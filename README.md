@@ -1,6 +1,6 @@
 # pdal-mcp
 
-PDAL MCP is an open-source server that exposes common **PDAL** command-line utilities through the **Model Context Protocol (MCP)**.  PDAL is a C++ library for reading and processing point‑cloud data such as LiDAR, analogous to GDAL for raster and vector data【213350811818443†L146-L162】.  MCP standardises how AI agents call external tools via JSON‑RPC, emphasising secure, discoverable and context‑preserving operations【922541277255947†L51-L66】【922541277255947†L132-L152】.  This project wraps PDAL’s CLI commands as MCP tools so AI assistants can inspect, translate and process point‑cloud data in a controlled environment.
+PDAL MCP is an open-source server that exposes common **PDAL** command-line utilities through the **Model Context Protocol (MCP)**. PDAL is a C++ library for reading and processing point-cloud data such as LiDAR, analogous to GDAL for raster and vector data【213350811818443†L146-L162】. MCP standardises how AI agents call external tools via JSON‑RPC, emphasising secure, discoverable and context-preserving operations【922541277255947†L51-L66】【922541277255947†L132-L152】. This project wraps PDAL’s CLI commands as MCP tools so AI assistants can inspect, translate and process point‑cloud data in a controlled environment.
 
 ## Features
 
@@ -17,48 +17,57 @@ For architectural details and JSON schemas for each tool, see [pdal_mcp_design.m
 ### Prerequisites
 
 - **Python 3.9+**.
-- **PDAL** installed on the host system (ensure the `pdal` CLI is available in your `PATH`).
-  You can install PDAL via conda:
+- **PDAL** installed on the host system (ensure the `pdal` CLI is available in your `PATH`). You can install PDAL via conda:
 
-  ```sh
-  conda install -c conda-forge pdal
-  ```
+```sh
+conda install -c conda-forge pdal
+```
 
 - Clone this repository:
 
-  ```sh
-  git clone https://github.com/JordanGunn/pdal-mcp.git
-  cd pdal-mcp
-  ```
+```sh
+git clone https://github.com/JordanGunn/pdal-mcp.git
+cd pdal-mcp
+```
 
-- Create a virtual environment and install dependencies:
+### Install dependencies
 
-  ```sh
-  python3 -m venv venv
-  source venv/bin/activate
-  pip install -r requirements.txt
-  ```
+- **Recommended**: use [`uv`](https://github.com/astronautcorp/uv) to manage a local Python environment and install the MCP Python SDK and PDAL bindings:
 
-### Running the server
+```sh
+uv init  # initialise a uv project (skip if already in a uv-managed directory)
+uv add "mcp[cli]" pdal
+```
 
-This project uses **FastAPI** with Uvicorn to implement the MCP server.  Start the server after setting up a configuration file (see below):
+- **Alternatively**, install via pip:
+
+```sh
+python3 -m pip install "mcp[cli]" pdal
+```
+
+## Running the server
+
+This project uses the MCP Python SDK’s **FastMCP** server. After creating a configuration file (see below), you can run the server with `uv`:
 
 ```sh
 # Copy the example config and edit as needed
 cp config.example.json config.json
 
-# Set the environment variable to point to your config
+# Point the environment variable to your config
 export PDAL_MCP_CONFIG=$(pwd)/config.json
 
-# Start the MCP server
-uvicorn src.main:app --host 0.0.0.0 --port 3001
+# Start the MCP server in development mode with hot‑reloading
+uv run mcp dev src/server.py
+
+# Start the MCP server via stdio (useful for production)
+uv run mcp src/server.py stdio
 ```
 
-> **Note:** Some MCP servers distributed by others use `npx` or [uv](https://github.com/astrocorp/uv) as packaging tools.  This project targets Python packaging directly; you do not need to run `npx` or `uv`.
+> **Note:** Some MCP servers are distributed via Node (`npx`) or Rust (`uvx`), but this project uses the official Python SDK and `uv` for dependency management and execution.
 
 ## Configuration
 
-The server reads configuration from a JSON file.  Set the path to the file in the `PDAL_MCP_CONFIG` environment variable before starting the server.  A typical configuration looks like:
+The server reads configuration from a JSON file. Set the path to the file in the `PDAL_MCP_CONFIG` environment variable before starting the server. A typical configuration looks like:
 
 ```json
 {
@@ -69,74 +78,67 @@ The server reads configuration from a JSON file.  Set the path to the file in th
 }
 ```
 
-- **workdir** – Directory where input and output files are stored.  The server will refuse paths outside this folder.
+- **workdir** – Directory where input and output files are stored. The server refuses paths outside this folder.
 - **allowedCommands** – List of PDAL commands enabled on the server.
 - **maxTimeout** – Maximum run time (ms) for any command.
-- **port** – Port to bind when launching the server via Uvicorn.
+- **port** – Port to bind when launching the server via uv.
 
 ## MCP tools
 
 | Tool name | Description |
 | --- | --- |
 | **pdal_info** | Wraps `pdal info` to display dataset information such as extents, point count, coordinate system, statistics and metadata【872216820604572†L304-L341】. |
-| **pdal_translate** | Wraps `pdal translate` to convert point‑cloud files or run simple filter pipelines; supports JSON pipeline files or `--filter` arguments【962225138174121†L308-L356】. |
+| **pdal_translate** | Wraps `pdal translate` to convert point-cloud files or run simple filter pipelines; supports JSON pipeline files or `--filter` arguments【962225138174121†L308-L356】. |
 | **pdal_pipeline** | Executes full PDAL pipelines described in JSON using `pdal pipeline`, with options for streaming and metadata output【556921230097715†L305-L327】【556921230097715†L330-L390】. |
 | **pdal_merge** | Merges multiple input files into one without filtering or reprojection【301070071328877†L307-L314】. |
-| **pdal_split** | Splits a point‑cloud file into multiple outputs based on tile size or point capacity; outputs are named using a template【697690024905749†L305-L331】【697690024905749†L339-L341】. |
-| **pdal_tile** | Generates square tiles from an input file with optional buffer and output spatial reference; output filenames must contain a `#` placeholder【644268424861177†L304-L345】【644268424861177†L346-L350】. |
-| **pdal_tindex** | Creates or merges a GDAL‑style tile index for point‑cloud files【795595144191429†L308-L354】【795595144191429†L375-L378】. |
+| **pdal_split** | Splits a point-cloud file into multiple outputs based on tile size or point capacity; outputs are named using a template【697690024905749†L305-L331】【697690024905749†L339-L341】. |
+| **pdal_tile** | Generates square tiles from an input file while handling an optional buffer and output spatial reference; output filenames must contain a `#` placeholder【644268424861177†L304-L345】【644268424861177†L346-L350】. |
+| **pdal_tindex** | Creates or merges a GDAL-style tile index for PDAL‑readable point-cloud files【79559144191429†L308-L354】【79559144191429†L375-L378】. |
 
 See the design document for each tool’s input and output JSON schema.
 
 ## Example usage
 
-After starting the server on port 3001, you can call MCP methods via JSON‑RPC:
+After starting the server on port `3001`, you can call MCP methods via JSON‑RPC:
 
 List available tools:
 
 ```sh
 curl -X POST http://localhost:3001/mcp/tools/list \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+ -H "Content-Type: application/json" \
+ -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
 ```
 
 Call `pdal_info` on a file in the working directory:
 
 ```sh
-curl -X POST http://localhost:3001/mcp/tools/call \
+curl -X POST http://localhost:3001/mcp/calls \
   -H "Content-Type: application/json" \
   -d @- <<'EOF'
 {
   "jsonrpc": "2.0",
-  "method": "tools/call",
-  "id": 2,
+  "method": "pdal_info",
   "params": {
-    "name": "pdal_info",
-    "input": {
-      "inputFile": "samples/lidar.las",
-      "stats": true,
-      "schema": true
-    }
-  }
+    "inputFile": "data.las",
+    "all": true
+  },
+  "id": 1
 }
 EOF
 ```
 
-The server returns JSON containing `stdout` (statistics and schema) and `stderr`.  For tools that create files, the response includes a `resourceUri` that you can fetch via the resources API.
-
 ## Contributing
 
-Contributions are welcome!  Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on setting up a development environment, coding standards, adding new tools and reporting issues.
-
+CContributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to report issues, propose new features and add new PDAL tools to this project.tools to this project.
 ## Code of Conduct
 
-We adhere to the [Contributor Covenant](CODE_OF_CONDUCT.md).  By participating in this project, you agree to follow its terms.
+This project adheres to a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
 
 ## License
 
-This project is licensed under the MIT License – see [LICENSE](LICENSE) for details.
+This project is licensed under the [MIT License](LICENSE).
 
 ## Acknowledgments
 
-- [PDAL](https://pdal.io) – The powerful open‑source library that this server wraps.
-- The [Model Context Protocol](https://example.com) – A universal standard for connecting AI systems to external tools【922541277255947†L51-L66】【922541277255947†L132-L152】.
+- [PDAL](https://pdal.io/) and its developers.
+- [Model Context Protocol](https://modelcontext.org) community for defining the MCP specification.
